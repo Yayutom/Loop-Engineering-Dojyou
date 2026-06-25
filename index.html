@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Loop Engineering 道場 — 手を動かして学ぶエージェントのループ設計</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121722; --panel2:#0f141d; --line:#222b3a;
+    --ink:#e8edf6; --muted:#9aa7bd; --dim:#6b7686;
+    --acc:#5eead4; --acc2:#7c9cff; --warn:#ffcf6b; --bad:#ff8a8a; --good:#7ee0a4;
+    --r:14px; --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#16203020,transparent),var(--bg);
+    color:var(--ink);font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+    line-height:1.7;-webkit-font-smoothing:antialiased}
+  a{color:var(--acc2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{display:grid;grid-template-columns:260px 1fr;max-width:1280px;margin:0 auto;min-height:100vh}
+
+  /* sidebar */
+  aside{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;
+    border-right:1px solid var(--line);padding:22px 16px;background:var(--panel2)}
+  .brand{font-weight:800;font-size:18px;letter-spacing:.3px;margin-bottom:2px}
+  .brand small{display:block;font-weight:500;color:var(--dim);font-size:11px;letter-spacing:.5px}
+  .prog{margin:16px 0 10px}
+  .bar{height:8px;border-radius:99px;background:#1c2433;overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .4s}
+  .prog small{color:var(--muted);font-size:12px}
+  nav a{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;color:var(--muted);
+    font-size:13.5px;margin:1px 0}
+  nav a:hover{background:#19212e;color:var(--ink);text-decoration:none}
+  nav a .dot{width:18px;height:18px;border-radius:50%;border:2px solid #2c374a;flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:11px}
+  nav a.done .dot{background:var(--good);border-color:var(--good);color:#06210f}
+  .reset{margin-top:14px;width:100%;background:transparent;border:1px solid var(--line);color:var(--dim);
+    padding:7px;border-radius:8px;font-size:11.5px;cursor:pointer}
+  .reset:hover{color:var(--ink);border-color:var(--muted)}
+
+  /* main */
+  main{padding:34px clamp(18px,4vw,56px) 100px;max-width:920px}
+  .hero{padding:30px 0 8px}
+  .kicker{display:inline-block;font-family:var(--mono);font-size:12px;color:var(--acc);
+    border:1px solid #20453f;background:#0e1f1c;padding:4px 10px;border-radius:99px;margin-bottom:14px}
+  h1{font-size:clamp(28px,5vw,44px);line-height:1.15;margin:.1em 0 .3em;letter-spacing:-.5px}
+  .lead{color:var(--muted);font-size:17px;max-width:62ch}
+  section{padding:34px 0;border-top:1px solid var(--line);scroll-margin-top:18px}
+  h2{font-size:26px;margin:.2em 0 .1em;letter-spacing:-.3px}
+  h2 .num{font-family:var(--mono);color:var(--acc);font-size:15px;margin-right:10px}
+  h3{font-size:18px;margin:1.4em 0 .4em}
+  p{color:#cdd6e6}
+  .muted{color:var(--muted)}
+  code{font-family:var(--mono);background:#0e1420;border:1px solid var(--line);padding:1px 6px;border-radius:6px;font-size:.88em;color:#bfe9df}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin:14px 0}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:780px){.g2,.g4{grid-template-columns:1fr}}
+  .tag{font-family:var(--mono);font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px}
+  .callout{border-left:3px solid var(--acc);background:#0e1a18;padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0}
+  .callout.warn{border-color:var(--warn);background:#1c1810}
+  .callout b{color:var(--ink)}
+  .btn{background:linear-gradient(90deg,var(--acc),var(--acc2));color:#06121a;border:none;font-weight:700;
+    padding:10px 18px;border-radius:10px;cursor:pointer;font-size:14px}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:600}
+  .btn.sm{padding:6px 12px;font-size:12.5px}
+  .complete{margin-top:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .complete .ok{color:var(--good);font-weight:700;display:none}
+
+  /* loop diagram */
+  .loop{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0}
+  .node{flex:1;min-width:120px;text-align:center;border:1px solid var(--line);background:var(--panel2);
+    border-radius:12px;padding:12px 8px;cursor:pointer;transition:.2s;position:relative}
+  .node:hover{border-color:var(--acc);transform:translateY(-2px)}
+  .node.active{border-color:var(--acc);background:#0e1d1a;box-shadow:0 0 0 1px var(--acc) inset}
+  .node .ic{font-size:22px}
+  .node .nm{font-weight:700;font-size:14px;margin-top:2px}
+  .node .en{font-family:var(--mono);font-size:10px;color:var(--dim)}
+  .arrow{display:flex;align-items:center;color:var(--dim);font-size:18px}
+  .detail{min-height:60px}
+
+  /* element cards */
+  .ecard{cursor:pointer;transition:.2s}
+  .ecard:hover{border-color:var(--acc2)}
+  .ecard .head{display:flex;justify-content:space-between;align-items:center}
+  .ecard .body{max-height:0;overflow:hidden;transition:max-height .35s;color:var(--muted);font-size:14px}
+  .ecard.open .body{max-height:340px;margin-top:10px}
+  .ecard .chev{color:var(--dim);transition:.3s}
+  .ecard.open .chev{transform:rotate(90deg);color:var(--acc)}
+
+  /* simulator */
+  .sim{background:linear-gradient(180deg,#101620,#0c1019);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+  .ctrls{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:680px){.ctrls{grid-template-columns:1fr}}
+  .field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:600}
+  .field .val{font-family:var(--mono);color:var(--acc);float:right}
+  input[type=range]{width:100%;accent-color:var(--acc)}
+  select,.seg{width:100%}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:90px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+    padding:8px;border-radius:8px;cursor:pointer;font-size:12.5px}
+  .seg button.on{border-color:var(--acc);color:var(--ink);background:#0e1d1a}
+  .meters{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}
+  @media(max-width:680px){.meters{grid-template-columns:repeat(2,1fr)}}
+  .meter{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .meter .k{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
+  .meter .v{font-family:var(--mono);font-size:22px;font-weight:700;margin-top:2px}
+  .console{font-family:var(--mono);font-size:12.5px;background:#070a0f;border:1px solid var(--line);
+    border-radius:10px;padding:12px;height:210px;overflow:auto;margin-top:6px}
+  .console .ln{padding:1px 0;white-space:pre-wrap}
+  .c-dim{color:var(--dim)} .c-acc{color:var(--acc)} .c-good{color:var(--good)}
+  .c-warn{color:var(--warn)} .c-bad{color:var(--bad)} .c-info{color:var(--acc2)}
+  .verdict{margin-top:12px;padding:12px 16px;border-radius:10px;font-weight:700;display:none}
+  .verdict.show{display:block}
+  .v-good{background:#0f2418;border:1px solid #1f5a3a;color:var(--good)}
+  .v-bad{background:#241313;border:1px solid #5a2020;color:var(--bad)}
+  .v-warn{background:#241f10;border:1px solid #5a4a1f;color:var(--warn)}
+
+  /* order exercise */
+  .order{list-style:none;padding:0;margin:8px 0}
+  .order li{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 14px;margin:7px 0;
+    display:flex;align-items:center;gap:12px;cursor:grab;user-select:none}
+  .order li.drag{opacity:.4}
+  .order li .h{color:var(--dim);font-size:18px}
+  .order li .idx{font-family:var(--mono);width:22px;color:var(--acc)}
+
+  /* quiz */
+  .q{margin:14px 0}
+  .q .opt{display:block;border:1px solid var(--line);background:var(--panel2);border-radius:10px;
+    padding:11px 14px;margin:7px 0;cursor:pointer;transition:.15s}
+  .q .opt:hover{border-color:var(--acc2)}
+  .q .opt.correct{border-color:var(--good);background:#0f2418}
+  .q .opt.wrong{border-color:var(--bad);background:#241313}
+  .q .exp{font-size:13.5px;color:var(--muted);margin-top:8px;display:none;padding:10px 12px;background:var(--panel2);border-radius:8px}
+  .q .exp.show{display:block}
+
+  /* pseudo editor */
+  .editor{font-family:var(--mono);font-size:13px;width:100%;min-height:230px;background:#070a0f;color:#cfe7e1;
+    border:1px solid var(--line);border-radius:10px;padding:14px;resize:vertical;line-height:1.6}
+  .trace{font-family:var(--mono);font-size:12.5px;background:#070a0f;border:1px solid var(--line);border-radius:10px;
+    padding:12px;margin-top:10px;min-height:60px}
+
+  /* checklist */
+  .check{list-style:none;padding:0;margin:8px 0}
+  .check li{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border:1px solid var(--line);
+    border-radius:10px;margin:6px 0;background:var(--panel2);cursor:pointer}
+  .check li .box{width:20px;height:20px;border:2px solid #33405a;border-radius:6px;flex:none;margin-top:2px;
+    display:flex;align-items:center;justify-content:center;font-size:13px}
+  .check li.on .box{background:var(--good);border-color:var(--good);color:#06210f}
+  .check li.on span{color:var(--dim);text-decoration:line-through}
+
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  footer{color:var(--dim);font-size:12.5px;padding:26px 0;border-top:1px solid var(--line)}
+  .pill{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
+  .topbtn{position:fixed;bottom:22px;right:22px;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:18px;display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside>
+    <div class="brand">Loop Engineering 道場<small>AGENT LOOP DESIGN · 2026 EDITION</small></div>
+    <div class="prog">
+      <div class="bar"><i id="pbar"></i></div>
+      <small id="ptext">進捗 0 / 8 モジュール</small>
+    </div>
+    <nav id="nav">
+      <a href="#m0"><span class="dot" data-k="m0">1</span>なぜ今ループ設計か</a>
+      <a href="#m1"><span class="dot" data-k="m1">2</span>ループの解剖学</a>
+      <a href="#m2"><span class="dot" data-k="m2">3</span>4つの設計要素</a>
+      <a href="#m3"><span class="dot" data-k="m3">4</span>ハンズオン①ループ実行</a>
+      <a href="#m4"><span class="dot" data-k="m4">5</span>ハンズオン②Verifier道場</a>
+      <a href="#m5"><span class="dot" data-k="m5">6</span>ループを組み立てる</a>
+      <a href="#m6"><span class="dot" data-k="m6">7</span>擬似コードを書く</a>
+      <a href="#m7"><span class="dot" data-k="m7">8</span>実務プレイブック</a>
+      <a href="#quiz"><span class="dot" data-k="quiz">★</span>理解度クイズ</a>
+      <a href="#glos"><span class="dot" data-k="glos">A</span>用語集</a>
+    </nav>
+    <button class="reset" id="reset">進捗をリセット</button>
+  </aside>
+
+  <main>
+    <div class="hero">
+      <span class="kicker">伴走型ハンズオン · 最終更新 2026-06</span>
+      <h1>プロンプトを書く人を、<br>ループの設計者へ。</h1>
+      <p class="lead">2026年、AIの腕前は「プロンプトの言い回し」では決まらなくなりました。決め手は<b style="color:var(--ink)">ループ設計（Loop Engineering）</b>——エージェントが何をきっかけに動き、どう繰り返し、何を「合格」とし、いつ止まるか。読むだけでなく、シミュレータと演習で手を動かしながら身につけます。</p>
+    </div>
+
+    <section id="m0">
+      <h2><span class="num">01</span>なぜ今「ループ設計」なのか</h2>
+      <p>あなたは今まで、AIに<b>1回お願いして1回返事をもらう</b>使い方をしてきたはずです。これがプロンプトエンジニアリング。一方エージェントは、<b>自分で動いて結果を見て、また動く</b>——この繰り返し（ループ）で目標に到達します。</p>
+      <div class="grid g2">
+        <div class="card"><div class="tag">これまで / Prompting</div><h3 style="margin-top:4px">1往復で終わる</h3><p class="muted" style="font-size:14px;margin:0">人間：「このバグ直して」→ AI：「こうですよ」→ 人間が確認 → また指示…。<b>毎回あなたが回している。</b></p></div>
+        <div class="card"><div class="tag">これから / Loop Engineering</div><h3 style="margin-top:4px">AIが自分で回す</h3><p class="muted" style="font-size:14px;margin:0">「テストが全部通るまで直し続けて」と<b>ループの仕組み</b>を渡す → AIが直す→テスト実行→失敗を見て直す…を自動で繰り返す。</p></div>
+      </div>
+      <div class="callout"><b>2026年6月の出来事。</b> Addy Osmani が "Loop Engineering" を提唱し、Peter Steinberger が一文に要約しました——<i>「エージェントにプロンプトするのをやめ、エージェントをプロンプトする"ループ"を設計せよ」</i>。プロンプトの言い回しがボトルネックでなくなった今、価値は「トリガー・トポロジー・検証・停止条件」の設計に移りました。</div>
+      <h3>この道場で身につくこと</h3>
+      <ul class="muted" style="font-size:14.5px"><li>ループを構成する<b>4つの部品</b>を、自分の言葉で説明できる</li><li>シミュレータで<b>「検証なしループ」が静かに失敗する</b>様子を体感する</li><li>擬似コードで<b>自分のループを1本書ける</b>ようになる</li><li>明日から使える<b>実務チェックリスト</b>を持ち帰る</li></ul>
+      <div class="complete"><button class="btn" data-done="m0">このモジュールを完了にする</button><span class="ok" id="ok-m0">✓ 完了！</span></div>
+    </section>
+
+    <section id="m1">
+      <h2><span class="num">02</span>ループの解剖学</h2>
+      <p>すべてのエージェントループは、下の輪をぐるぐる回っているだけです。<b>各ノードをクリック</b>して役割を確認しましょう。</p>
+      <div class="loop" id="loop">
+        <div class="node" data-n="trigger"><div class="ic">⚡</div><div class="nm">きっかけ</div><div class="en">TRIGGER</div></div>
+        <div class="arrow">→</div>
+        <div class="node" data-n="plan"><div class="ic">🧭</div><div class="nm">計画</div><div class="en">PLAN</div></div>
+        <div class="arrow">→</div>
+        <div class="node" data-n="act"><div class="ic">🔧</div><div class="nm">行動</div><div class="en">ACT</div></div>
+        <div class="arrow">→</div>
+        <div class="node" data-n="observe"><div class="ic">👀</div><div class="nm">観測</div><div class="en">OBSERVE</div></div>
+        <div class="arrow">→</div>
+        <div class="node" data-n="verify"><div class="ic">✅</div><div class="nm">検証</div><div class="en">VERIFY</div></div>
+        <div class="arrow">↺</div>
+        <div class="node" data-n="stop"><div class="ic">🛑</div><div class="nm">停止判定</div><div class="en">STOP?</div></div>
+      </div>
+      <div class="card detail" id="loopDetail"><span class="muted">↑ ノードをクリックすると、ここに説明が出ます。まずは <b>⚡きっかけ</b> から。</span></div>
+      <div class="callout warn"><b>初心者がつまずく所：</b> 「観測（OBSERVE）」と「検証（VERIFY）」は別物です。観測は<i>結果を受け取る</i>こと。検証は<i>その結果が"本当に合格か"を判定する</i>こと。テストの出力を読むのが観測、テストが全部緑かを判定するのが検証。<b>検証を省くとループは"できたつもり"で止まります。</b></div>
+      <div class="complete"><button class="btn" data-done="m1">このモジュールを完了にする</button><span class="ok" id="ok-m1">✓ 完了！</span></div>
+    </section>
+
+    <section id="m2">
+      <h2><span class="num">03</span>4つの設計要素</h2>
+      <p>ループ設計でいじるツマミは、突き詰めると<b>4つ</b>だけ。カードをクリックして展開しましょう。これがこの道場の背骨です。</p>
+      <div class="grid">
+        <div class="card ecard" data-e="1"><div class="head"><div><span class="pill" style="color:var(--acc)">①</span> <b>Trigger（トリガー / きっかけ）</b><div class="tag" style="margin-top:3px">いつループを起動するか</div></div><div class="chev">▸</div></div><div class="body"><p>ループは誰が始める？ 自分で毎回叩くなら、まだ自動化ではありません。トリガーの例：</p><ul><li><b>手動</b>：人がコマンドを打つ（学習の入口）</li><li><b>スケジュール</b>：毎朝9時、5分ごと（cron 的）</li><li><b>イベント</b>：PRが来たら / Slackにメンションが来たら / CIが落ちたら</li></ul><p class="muted">初心者の最初の一歩は「手動トリガー」で十分。慣れたらイベント駆動へ。</p></div></div>
+        <div class="card ecard" data-e="2"><div class="head"><div><span class="pill" style="color:var(--acc2)">②</span> <b>Topology（トポロジー / 形）</b><div class="tag" style="margin-top:3px">ループの構造・誰が何回まわるか</div></div><div class="chev">▸</div></div><div class="body"><p>ループの"かたち"。単純な1本ループから、役割分担まで。</p><ul><li><b>単一ループ</b>：1体のエージェントが回す（まずこれ）</li><li><b>生成→検証の二人羽織</b>：作る係と、ダメ出しする係を分ける</li><li><b>マルチエージェント</b>：調査・実装・レビューを別エージェントに</li><li><b>入れ子ループ</b>：大きな目標ループの中に小さな修正ループ</li></ul><p class="muted">迷ったら小さく。トポロジーを複雑にするほどデバッグは難しくなります。</p></div></div>
+        <div class="card ecard" data-e="3"><div class="head"><div><span class="pill" style="color:var(--good)">③</span> <b>Verifier（検証器）</b> <span class="pill" style="color:var(--warn);border-color:#5a4a1f">最重要</span><div class="tag" style="margin-top:3px">「合格 / 完了」を機械的に判定する仕組み</div></div><div class="chev">▸</div></div><div class="body"><p><b>ループの品質はここで決まります。</b>「いい感じ」「たぶんOK」はNG。<b>機械が○×を返せる</b>基準にするのがコツ。</p><ul><li>テストが全部パスする（緑になる）</li><li>Lint / 型チェックがエラー0</li><li>ビルドが通る / 指定の文字列が出力に含まれる</li><li>別のLLMが「要件を満たす」と判定（LLM-as-judge）</li></ul><p class="callout warn" style="margin:8px 0 0">2026年の合言葉：<b>「ボトルネックはモデルではなく検証器」</b>。"良い"と"完了"を定義する力が、いま一番の希少スキルです。</p></div></div>
+        <div class="card ecard" data-e="4"><div class="head"><div><span class="pill" style="color:var(--bad)">④</span> <b>Stop rules（停止条件）</b><div class="tag" style="margin-top:3px">いつ抜ける / いつ諦めるか</div></div><div class="chev">▸</div></div><div class="body"><p>止め方を決めないループは、お金（トークン）を燃やし続けます。最低でも<b>2種類</b>の停止口を：</p><ul><li><b>成功で停止</b>：検証器が合格 → 即終了（本命）</li><li><b>上限で停止</b>：最大N回 / トークン上限 / 時間切れ（暴走防止の安全網）</li><li><b>停滞で停止</b>：M回連続で進歩なし → 諦めて人間にエスカレーション</li></ul><p class="muted">「成功」だけだと永遠に終わらないリスク、「上限」だけだと未完成で打ち切るリスク。<b>両方</b>置くのが定石。</p></div></div>
+      </div>
+      <div class="callout"><b>暗記用の一文：</b> 「<b>トリガー</b>で始まり、<b>トポロジー</b>という形で回り、<b>検証器</b>が合否を決め、<b>停止条件</b>で抜ける。」</div>
+      <div class="complete"><button class="btn" data-done="m2">このモジュールを完了にする</button><span class="ok" id="ok-m2">✓ 完了！</span></div>
+    </section>
+
+    <section id="m3">
+      <h2><span class="num">04</span>ハンズオン① ループを実行してみる</h2>
+      <p>シナリオ：<b>失敗しているテストが8件</b>あるコードを、エージェントに直させます。ツマミを変えて<b>▶ ループ実行</b>を押し、ログと結果がどう変わるか観察してください。</p>
+      <div class="sim">
+        <div class="ctrls">
+          <div class="field"><label>最大ループ回数 <span class="val" id="vMax">6</span></label><input type="range" id="sMax" min="1" max="15" value="6" /></div>
+          <div class="field"><label>エージェントの腕前（1回あたりの修正力）<span class="val" id="vSkill">普通</span></label><input type="range" id="sSkill" min="1" max="3" value="2" /></div>
+          <div class="field"><label>検証器（Verifier）</label><div class="seg" id="segVer"><button data-v="none">なし</button><button data-v="test" class="on">テスト</button><button data-v="strict">テスト+Lint</button></div></div>
+          <div class="field"><label>停止条件（Stop rule）</label><div class="seg" id="segStop"><button data-s="verify" class="on">合格で停止</button><button data-s="max">上限まで回す</button></div></div>
+        </div>
+        <div class="meters">
+          <div class="meter"><div class="k">ループ回数</div><div class="v" id="mIter">0</div></div>
+          <div class="meter"><div class="k">残りテスト失敗</div><div class="v" id="mFail">8</div></div>
+          <div class="meter"><div class="k">消費トークン</div><div class="v" id="mTok">0</div></div>
+          <div class="meter"><div class="k">Lintエラー</div><div class="v" id="mLint">3</div></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="run">▶ ループ実行</button><button class="btn ghost sm" id="reset2">リセット</button></div>
+        <div class="console" id="con"><div class="ln c-dim">// ここに各ループの動きが出力されます。まずは「検証器：なし」で実行してみましょう。</div></div>
+        <div class="verdict" id="verd"></div>
+      </div>
+      <div class="callout warn" style="margin-top:18px"><b>必ず試してほしい3パターン：</b><ol style="margin:6px 0 0"><li><b>検証器「なし」</b>で実行 → エージェントは1回で「できました！」と止まるのに、テストはまだ失敗。これが<b>"できたつもり"の偽完了</b>。</li><li><b>検証器「テスト」+ 停止「合格で停止」</b> → 失敗0になった瞬間に賢く止まる。これが理想形。</li><li><b>停止「上限まで回す」+ 最大15回</b> → 合格後もムダに回り続け、トークンを浪費。停止条件の大切さがわかります。</li></ol></div>
+      <div class="complete"><button class="btn" data-done="m3">3パターン試した → 完了にする</button><span class="ok" id="ok-m3">✓ 完了！</span></div>
+    </section>
+
+    <section id="m4">
+      <h2><span class="num">05</span>ハンズオン② Verifier道場</h2>
+      <p>「検証器がボトルネック」を体で覚える回。下の各タスクで、<b>使える検証器（機械が○×を返せるもの）</b>を選んでください。曖昧なものを選ぶと、ループは止まれません。</p>
+      <div id="verLab"></div>
+      <div class="callout"><b>良い検証器の見分け方：</b> ①<b>自動で</b>実行できる ②結果が<b>○か×か</b>はっきりする ③人間の気分で揺れない。この3つを満たさないものは「観測」止まりで、停止条件には使えません。</div>
+      <div class="complete"><button class="btn" data-done="m4">このモジュールを完了にする</button><span class="ok" id="ok-m4">✓ 完了！</span></div>
+    </section>
+
+    <section id="m5">
+      <h2><span class="num">06</span>ループを正しい順に組み立てる</h2>
+      <p>下のステップは<b>順番がバラバラ</b>です。ドラッグして、正しいループの1周になるよう並べ替え、<b>採点</b>を押してください。</p>
+      <ul class="order" id="order">
+        <li draggable="true" data-id="2"><span class="h">⠿</span><span class="idx"></span><span>取得した結果（テスト出力など）を読む【観測】</span></li>
+        <li draggable="true" data-id="0"><span class="h">⠿</span><span class="idx"></span><span>タスクと現状から次の一手を決める【計画】</span></li>
+        <li draggable="true" data-id="4"><span class="h">⠿</span><span class="idx"></span><span>合格 or 上限なら抜ける、ダメなら最初へ戻る【停止判定】</span></li>
+        <li draggable="true" data-id="1"><span class="h">⠿</span><span class="idx"></span><span>ツール（編集・コマンド実行）で実際に手を動かす【行動】</span></li>
+        <li draggable="true" data-id="3"><span class="h">⠿</span><span class="idx"></span><span>結果が"合格基準"を満たすか機械的に判定する【検証】</span></li>
+      </ul>
+      <div style="display:flex;gap:10px;align-items:center"><button class="btn" id="grade">採点する</button><span id="gradeMsg" class="muted"></span></div>
+      <div class="complete"><button class="btn" data-done="m5">正解できた → 完了にする</button><span class="ok" id="ok-m5">✓ 完了！</span></div>
+    </section>
+
+    <section id="m6">
+      <h2><span class="num">07</span>擬似コードで「自分のループ」を書く</h2>
+      <p>いよいよ手書き。下の擬似コードは<b>4要素がすべて入った最小ループ</b>です。読み解いてから、<code>TODO</code>を自分で埋め、<b>トレース実行</b>でロジックを確認しましょう（本物のAIは動きませんが、ループの流れを擬似的に追えます）。</p>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="background:var(--panel2);border-bottom:1px solid var(--line);padding:8px 14px" class="tag">my_loop.pseudo — クリックで編集できます</div>
+        <textarea class="editor" id="ed" spellcheck="false">// === 4要素を全部含んだ最小ループ ===
+
+ループ "テストを全部通す":
+
+  // ① トリガー: 何がきっかけで動くか
+  トリガー = 手動           // 例: schedule("毎朝9時") / on("PR作成")
+
+  // ④ 停止条件(安全網): 暴走しないための上限
+  最大回数 = 5
+
+  状態 = タスク読み込み("失敗テストを全部直す")
+
+  繰り返し i を 1 から 最大回数 まで:
+
+      // ② トポロジー: ここでは単一エージェントが計画→行動
+      手 = エージェント.次の一手(状態)
+      結果 = 実行(手)            // 行動 + 観測
+
+      // ③ 検証器: 機械が○×を返せる基準にする
+      合格 = テスト実行().全部緑?   // TODO: 自分のタスクの合格条件に変えてみよう
+
+      もし 合格 ならば:
+          返す "成功 (" + i + "周で完了)"   // ④ 成功で停止
+
+  // ④ 上限で停止 → 人間にエスカレーション
+  返す "未完了: 人間に引き継ぐ"
+</textarea>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px"><button class="btn" id="traceBtn">▶ トレース実行</button><button class="btn ghost sm" id="edReset">お手本に戻す</button></div>
+      <div class="trace" id="trace"><span class="c-dim">// 「トレース実行」を押すと、ループが何周してどこで止まるかを擬似実行します。</span></div>
+      <div class="callout"><b>書けたら自分のタスクに置換：</b> 「失敗テストを全部直す」を、あなたの仕事（例：<i>「この記事を校正してリンク切れ0にする」</i>）に置き換え、③の合格条件を<b>機械が判定できる形</b>（例：リンクチェッカーがエラー0）にしてみましょう。それがあなたの最初のループ設計です。</div>
+      <div class="complete"><button class="btn" data-done="m6">トレースを動かした → 完了にする</button><span class="ok" id="ok-m6">✓ 完了！</span></div>
+    </section>
+
+    <section id="m7">
+      <h2><span class="num">08</span>実務プレイブック & チェックリスト</h2>
+      <p>明日から使う用。ループを本番投入する前に、この<b>離陸前チェックリスト</b>をなぞってください（クリックでチェック、状態は保存されます）。</p>
+      <h3>🚀 ループ離陸前チェックリスト</h3>
+      <ul class="check" id="check">
+        <li data-c="c1"><span class="box">✓</span><span><b>合格条件は機械が○×を返せるか？</b>（「いい感じ」を排除した）</span></li>
+        <li data-c="c2"><span class="box">✓</span><span><b>停止条件は2つ以上あるか？</b>（成功で停止 ＋ 上限/時間/停滞で停止）</span></li>
+        <li data-c="c3"><span class="box">✓</span><span><b>暴走時の上限を決めたか？</b>（最大回数 / トークン / コスト上限）</span></li>
+        <li data-c="c4"><span class="box">✓</span><span><b>失敗時の逃げ道はあるか？</b>（人間にエスカレーション or 安全に巻き戻し）</span></li>
+        <li data-c="c5"><span class="box">✓</span><span><b>各ループの動きはログに残るか？</b>（後で何が起きたか追える）</span></li>
+        <li data-c="c6"><span class="box">✓</span><span><b>文脈(コンテキスト)は膨らみ過ぎないか？</b>（毎周ゴミを溜めず、要点だけ渡す）</span></li>
+        <li data-c="c7"><span class="box">✓</span><span><b>まず小さく回したか？</b>（単一ループ→慣れたら多段/マルチへ）</span></li>
+        <li data-c="c8"><span class="box">✓</span><span><b>取り返しのつかない操作に承認ゲートを置いたか？</b>（本番DB削除・送金・公開など）</span></li>
+      </ul>
+      <h3>よくある失敗とその処方</h3>
+      <table>
+        <tr><th>症状</th><th>原因</th><th>処方</th></tr>
+        <tr><td>1周で「できました」と止まるが成果が嘘</td><td>検証器がない／弱い</td><td>機械判定できる合格条件を追加（テスト・Lint・スキーマ）</td></tr>
+        <tr><td>永遠に終わらない／トークンが溶ける</td><td>停止条件が「成功」だけ</td><td>最大回数・停滞検知・コスト上限を追加</td></tr>
+        <tr><td>途中から的外れな修正を始める</td><td>コンテキストが汚れて肥大</td><td>毎周コンテキストを剪定、要点だけ渡す（文脈設計）</td></tr>
+        <tr><td>同じ失敗を繰り返す</td><td>失敗から学ぶ仕組みがない</td><td>検証の不合格理由を次の計画に必ず渡す</td></tr>
+        <tr><td>たまに危険な操作をする</td><td>承認ゲート不在</td><td>不可逆操作の前に人間 or ルールで確認</td></tr>
+      </table>
+      <div class="callout"><b>コンテキスト設計（おまけの最重要トピック）：</b> 2025年のChromaの研究で、<b>情報を増やすほどモデルは賢くならず、むしろ精度が落ちる</b>ことが18モデルで確認されました。ループの各周で「全部盛り」を渡さず、<b>今この一手に必要な要点だけ</b>を渡す——これがLoop Engineeringと両輪のContext Engineeringです。</div>
+      <div class="complete"><button class="btn" data-done="m7">プレイブックを読んだ → 完了にする</button><span class="ok" id="ok-m7">✓ 完了！</span></div>
+    </section>
+
+    <section id="quiz">
+      <h2><span class="num">★</span>理解度クイズ（全5問）</h2>
+      <p>選択肢をクリックすると即採点＆解説が出ます。</p>
+      <div id="quizBox"></div>
+      <div class="card" id="quizScore" style="display:none"><b>スコア：<span id="qScoreNum">0</span> / 5</b> <span id="qScoreMsg" class="muted"></span></div>
+      <div class="complete"><button class="btn" data-done="quiz">クイズを完了にする</button><span class="ok" id="ok-quiz">✓ 完了！</span></div>
+    </section>
+
+    <section id="glos">
+      <h2><span class="num">A</span>用語集（迷ったらここへ）</h2>
+      <div class="grid g2">
+        <div class="card"><b>Loop Engineering</b><p class="muted" style="font-size:13.5px;margin:4px 0 0">エージェントが自分で繰り返し動く"ループ"そのものを設計する実践。プロンプト調整の次の段階。</p></div>
+        <div class="card"><b>Agent（エージェント）</b><p class="muted" style="font-size:13.5px;margin:4px 0 0">LLM＋ツール＋ループ。指示を1回返すだけでなく、行動→観測→再行動を自律的に繰り返す。</p></div>
+        <div class="card"><b>Trigger</b><p class="muted" style="font-size:13.5px;margin:4px 0 0">ループの起動きっかけ。手動／スケジュール／イベント。</p></div>
+        <div class="card"><b>Topology</b><p class="muted" style="font-size:13.5px;margin:4px 0 0">ループの構造。単一／生成＋検証／マルチエージェント／入れ子。</p></div>
+        <div class="card"><b>Verifier（検証器）</b><p class="muted" style="font-size:13.5px;margin:4px 0 0">合格・完了を機械的に判定する仕組み。ループ品質の心臓部。</p></div>
+        <div class="card"><b>Stop rule（停止条件）</b><p class="muted" style="font-size:13.5px;margin:4px 0 0">いつ抜けるか／諦めるか。成功・上限・停滞の組み合わせ。</p></div>
+        <div class="card"><b>ReAct</b><p class="muted" style="font-size:13.5px;margin:4px 0 0">Reason+Act。「考える→動く→観測」を繰り返す古典的ループ。Loop Engineeringの土台。</p></div>
+        <div class="card"><b>Context Engineering</b><p class="muted" style="font-size:13.5px;margin:4px 0 0">各周でモデルに"何を見せるか"を厳選する技術。多く渡すほど良いとは限らない。</p></div>
+        <div class="card"><b>LLM-as-judge</b><p class="muted" style="font-size:13.5px;margin:4px 0 0">別のLLMに合否を判定させる検証手法。自動テストが書けない曖昧タスク向け。</p></div>
+        <div class="card"><b>Harness（ハーネス）</b><p class="muted" style="font-size:13.5px;margin:4px 0 0">ループ・ツール・停止条件をまとめてエージェントに被せる"足回り"全体。</p></div>
+      </div>
+      <h3>もっと学ぶ（出典）</h3>
+      <ul class="muted" style="font-size:13.5px">
+        <li><a href="https://datasciencedojo.com/blog/agentic-loops-explained-from-react-to-loop-engineering-2026-guide/" target="_blank" rel="noopener">Agentic Loops: From ReAct to Loop Engineering (2026)</a></li>
+        <li><a href="https://www.requesty.ai/blog/loop-engineering-how-to-build-ai-agent-loops-that-run-themselves" target="_blank" rel="noopener">Loop Engineering: AI Agent Loops That Run Themselves — Requesty</a></li>
+        <li><a href="https://explainx.ai/blog/what-is-loop-engineering-ai-agents-2026" target="_blank" rel="noopener">What Is Loop Engineering? Beyond Prompt Engineering — explainx.ai</a></li>
+        <li><a href="https://martinfowler.com/articles/exploring-gen-ai/context-engineering-coding-agents.html" target="_blank" rel="noopener">Context Engineering for Coding Agents — martinfowler.com</a></li>
+        <li><a href="https://arxiv.org/abs/2510.04618" target="_blank" rel="noopener">Agentic Context Engineering (ACE) — arXiv 2510.04618</a></li>
+      </ul>
+    </section>
+
+    <footer>Loop Engineering 道場 · 手を動かして学ぶエージェントのループ設計 · 2026年6月版<br>進捗・チェック・並べ替えは端末内（localStorage）に保存されます。教材として自由にどうぞ。</footer>
+  </main>
+</div>
+<button class="topbtn" id="top">↑</button>
+
+<script>
+"use strict";
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const KEY="loopdojo.v1";
+const store=JSON.parse(localStorage.getItem(KEY)||"{}");
+const save=()=>localStorage.setItem(KEY,JSON.stringify(store));
+const MODS=["m0","m1","m2","m3","m4","m5","m6","m7","quiz"];
+
+function refreshProgress(){
+  const done=MODS.filter(m=>store["done_"+m]).length;
+  $("#pbar").style.width=(done/MODS.length*100)+"%";
+  $("#ptext").textContent=`進捗 ${done} / ${MODS.length} モジュール`;
+  MODS.forEach(m=>{
+    const dot=$(`.dot[data-k="${m}"]`); if(dot) dot.parentElement.classList.toggle("done",!!store["done_"+m]);
+    const ok=$("#ok-"+m); if(ok) ok.style.display=store["done_"+m]?"inline":"none";
+  });
+}
+$$("[data-done]").forEach(b=>b.addEventListener("click",()=>{
+  store["done_"+b.dataset.done]=true; save(); refreshProgress();
+  b.textContent="✓ 完了済み"; b.classList.add("ghost");
+}));
+$("#reset").addEventListener("click",()=>{
+  if(confirm("進捗・チェック・クイズの記録をすべて消去します。よろしいですか？")){
+    localStorage.removeItem(KEY); location.reload();
+  }
+});
+
+const LOOPTXT={
+  trigger:["⚡ きっかけ / TRIGGER","何がループを起動するか。手動コマンド、スケジュール（毎朝9時）、イベント（PR作成・CI失敗・メンション）。<b>「誰が回しているか」</b>が自動化の分かれ目。"],
+  plan:["🧭 計画 / PLAN","タスクと現状を見て<b>次の一手</b>を決める。LLMが「何をすべきか」を考える脳の部分。"],
+  act:["🔧 行動 / ACT","計画をツールで<b>実行</b>。ファイル編集、コマンド実行、API呼び出しなど。ここで初めて世界が変わる。"],
+  observe:["👀 観測 / OBSERVE","行動の<b>結果を受け取る</b>。テスト出力、エラーメッセージ、APIレスポンス。まだ合否判定はしていない点に注意。"],
+  verify:["✅ 検証 / VERIFY","観測結果が<b>合格基準を満たすか機械的に判定</b>。テスト全緑？ Lint 0？ ここがループ品質の心臓。観測との違いを意識。"],
+  stop:["🛑 停止判定 / STOP?","合格 or 上限なら<b>抜ける</b>、まだなら計画へ<b>戻る</b>。成功・上限・停滞の3口を用意するのが定石。"]
+};
+$$("#loop .node").forEach(n=>n.addEventListener("click",()=>{
+  $$("#loop .node").forEach(x=>x.classList.remove("active")); n.classList.add("active");
+  const t=LOOPTXT[n.dataset.n]; $("#loopDetail").innerHTML=`<b style="font-size:16px">${t[0]}</b><p style="margin:6px 0 0">${t[1]}</p>`;
+}));
+
+$$(".ecard").forEach(c=>$(".head",c).addEventListener("click",()=>c.classList.toggle("open")));
+
+const sim={max:6,skill:2,ver:"test",stop:"verify"};
+const skillName=["","弱い","普通","強い"];
+const skillFix=[0,1,2,4];
+function setVer(v){sim.ver=v;$$("#segVer button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));}
+function setStop(s){sim.stop=s;$$("#segStop button").forEach(b=>b.classList.toggle("on",b.dataset.s===s));}
+$$("#segVer button").forEach(b=>b.addEventListener("click",()=>setVer(b.dataset.v)));
+$$("#segStop button").forEach(b=>b.addEventListener("click",()=>setStop(b.dataset.s)));
+$("#sMax").addEventListener("input",e=>{sim.max=+e.target.value;$("#vMax").textContent=sim.max;});
+$("#sSkill").addEventListener("input",e=>{sim.skill=+e.target.value;$("#vSkill").textContent=skillName[sim.skill];});
+
+const con=$("#con");
+function log(t,c=""){const d=document.createElement("div");d.className="ln "+c;d.innerHTML=t;con.appendChild(d);con.scrollTop=con.scrollHeight;}
+function setMeter(fail,iter,tok,lint){$("#mFail").textContent=fail;$("#mIter").textContent=iter;$("#mTok").textContent=tok.toLocaleString();$("#mLint").textContent=lint;}
+function resetSim(){con.innerHTML='<div class="ln c-dim">// リセットしました。ツマミを変えて ▶ ループ実行 を押してください。</div>';
+  $("#verd").className="verdict";setMeter(8,0,0,3);}
+$("#reset2").addEventListener("click",resetSim);
+
+let running=false;
+$("#run").addEventListener("click",async()=>{
+  if(running) return; running=true; $("#run").disabled=true;
+  con.innerHTML=""; $("#verd").className="verdict";
+  let fail=8, lint=3, tok=0, iter=0, stoppedReason="";
+  const fixPer=skillFix[sim.skill];
+  log(`<span class="c-info">[起動]</span> トリガー=手動 / 検証器=${({none:"なし",test:"テスト",strict:"テスト+Lint"})[sim.ver]} / 停止=${sim.stop==="verify"?"合格で停止":"上限まで回す"} / 最大${sim.max}回`,"c-info");
+  await wait(350);
+  for(iter=1;iter<=sim.max;iter++){
+    log(`── ループ ${iter} 周目 ───────────`,"c-dim"); await wait(260);
+    log(`🧭 計画: 失敗テスト${fail}件のうち先頭から修正方針を決定`); await wait(220);
+    const before=fail;
+    fail=Math.max(0,fail-fixPer-(Math.random()<.3?1:0));
+    if(sim.ver==="strict" && Math.random()<.6) lint=Math.max(0,lint-1);
+    tok+=2200+Math.round(Math.random()*900);
+    log(`🔧 行動+👀観測: 修正を適用 → テスト失敗 ${before}→${fail} 件`,"");
+    setMeter(fail,iter,tok,lint); await wait(300);
+    if(sim.ver==="none"){
+      log(`✅ 検証: <span class="c-warn">検証器なし → エージェントの自己申告を信用「直したつもり」</span>`,"c-warn"); await wait(260);
+      log(`🛑 停止判定: 自己申告で完了とみなす → ループ終了`,"c-warn");
+      stoppedReason="none"; break;
+    }
+    const passTest = fail===0;
+    const passLint = sim.ver==="strict" ? lint===0 : true;
+    const pass = passTest && passLint;
+    log(`✅ 検証: テスト${passTest?'<span class="c-good">全緑</span>':`<span class="c-bad">失敗${fail}</span>`}` + (sim.ver==="strict"?` / Lint${passLint?'<span class="c-good">0</span>':`<span class="c-bad">${lint}</span>`}`:""));
+    await wait(240);
+    if(sim.stop==="verify" && pass){ log(`🛑 停止判定: <span class="c-good">合格 → 即終了</span>`,"c-good"); stoppedReason="success"; break; }
+    if(sim.stop==="max" && pass){ log(`🛑 停止判定: 合格だが「上限まで回す」設定 → <span class="c-warn">ムダに継続…</span>`,"c-warn"); }
+    else { log(`🛑 停止判定: 未合格 → 計画へ戻る`,"c-dim"); }
+    await wait(240);
+  }
+  if(iter>sim.max){iter=sim.max; stoppedReason=stoppedReason||"max";}
+  const v=$("#verd");
+  const realPass = fail===0 && (sim.ver!=="strict"||lint===0);
+  if(stoppedReason==="success"){
+    v.className="verdict show v-good";
+    v.innerHTML=`🎉 <b>理想形！</b> ${iter}周・約${tok.toLocaleString()}トークンで合格→即停止。検証器が完了を保証し、停止条件がムダ回しを防ぎました。`;
+  }else if(stoppedReason==="none"){
+    v.className="verdict show v-bad";
+    v.innerHTML=`⚠️ <b>偽完了（できたつもり）。</b> 検証器が無いので「直した」という自己申告で止まりましたが、実際はテスト失敗${fail}件が残っています。<b>これが検証器を省いた時の最大の罠。</b>`;
+  }else if(realPass && sim.stop==="max"){
+    v.className="verdict show v-warn";
+    v.innerHTML=`💸 <b>もったいない。</b> 合格後も上限まで回し、${tok.toLocaleString()}トークンを浪費。「合格で停止」にすれば最小コストで終われました。`;
+  }else{
+    v.className="verdict show v-warn";
+    v.innerHTML=`🔁 <b>上限到達で打ち切り。</b> 失敗${fail}件を残して最大${sim.max}回に到達。腕前を上げるか最大回数を増やす、あるいは人間へエスカレーションを。`;
+  }
+  running=false; $("#run").disabled=false;
+});
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+
+const labTasks=[
+  {q:"「ログイン機能のバグを直す」ループの検証器として最適なのは？",
+   opts:[["E2Eテスト『ログイン成功』が緑になる",true],["AIが『良くなった気がする』と言う",false],["コードの行数が減った",false]],
+   exp:"自動実行でき、○×がはっきりするE2Eテストが正解。『気がする』は気分で揺れ、行数は品質と無関係。"},
+  {q:"「ブログ記事を生成する」ループ。自動テストが書きにくいタスクの検証器は？",
+   opts:[["別のLLMにルーブリックで採点させる(LLM-as-judge)",true],["文字数が1000字を超えた",false],["人間が後で読む予定",false]],
+   exp:"曖昧タスクは LLM-as-judge が定石。文字数は質を保証せず、『後で読む』は自動停止に使えない。"},
+  {q:"「CSVを整形してDBに投入」ループの検証器は？",
+   opts:[["スキーマ検証で全行がルールを満たす",true],["投入が『たぶん』終わった",false],["処理が速かった",false]],
+   exp:"スキーマ検証は機械的に○×を返せる理想的な検証器。『たぶん』『速い』は合否基準にならない。"}
+];
+const lab=$("#verLab");
+labTasks.forEach((t,i)=>{
+  const c=document.createElement("div");c.className="card q";
+  c.innerHTML=`<b>Q${i+1}. ${t.q}</b>`+t.opts.map((o,j)=>`<span class="opt" data-i="${i}" data-j="${j}" data-ok="${o[1]}">${o[0]}</span>`).join("")+`<div class="exp">💡 ${t.exp}</div>`;
+  lab.appendChild(c);
+});
+$$("#verLab .opt").forEach(o=>o.addEventListener("click",()=>{
+  const card=o.closest(".q"); if(card.dataset.answered) return; card.dataset.answered="1";
+  $$(".opt",card).forEach(x=>x.classList.add(x.dataset.ok==="true"?"correct":"wrong"));
+  $(".exp",card).classList.add("show");
+}));
+
+const ol=$("#order"); let dragEl=null;
+function renumber(){$$("#order li").forEach((li,i)=>$(".idx",li).textContent=(i+1));}
+renumber();
+$$("#order li").forEach(li=>{
+  li.addEventListener("dragstart",()=>{dragEl=li;li.classList.add("drag");});
+  li.addEventListener("dragend",()=>{li.classList.remove("drag");renumber();});
+});
+ol.addEventListener("dragover",e=>{
+  e.preventDefault();
+  const after=[...ol.querySelectorAll("li:not(.drag)")].find(li=>{
+    const r=li.getBoundingClientRect();return e.clientY<=r.top+r.height/2;});
+  if(after) ol.insertBefore(dragEl,after); else ol.appendChild(dragEl);
+});
+$("#grade").addEventListener("click",()=>{
+  const order=$$("#order li").map(li=>+li.dataset.id);
+  const ok=order.every((v,i)=>v===i);
+  $("#gradeMsg").innerHTML = ok
+    ? '<span class="c-good">✅ 正解！ 計画→行動→観測→検証→停止判定 の順です。</span>'
+    : '<span class="c-bad">❌ 惜しい。ヒント: 「計画」が先頭、「停止判定」が最後。観測の後に検証が来ます。</span>';
+});
+
+const ED_DEFAULT=$("#ed").value;
+$("#edReset").addEventListener("click",()=>{$("#ed").value=ED_DEFAULT;$("#trace").innerHTML='<span class="c-dim">// お手本に戻しました。</span>';});
+$("#traceBtn").addEventListener("click",()=>{
+  const txt=$("#ed").value;
+  const tr=$("#trace"); tr.innerHTML="";
+  const maxM=(txt.match(/最大回数\s*=\s*(\d+)/));
+  const maxN=maxM?+maxM[1]:5;
+  const hasVerify=/合格\s*=|検証|テスト実行|全部緑|judge|エラー0|lint/i.test(txt);
+  const out=(t,c="")=>{const d=document.createElement("div");d.className=c;d.textContent=t;tr.appendChild(d);};
+  out(`▶ ループ開始（最大回数 = ${maxN}）`);
+  if(!hasVerify){ out("⚠️ 検証(③)らしき行が見つかりません。合格条件がないと、ループは止まれない/偽完了します。","c-warn"); }
+  const succeedAt = Math.min(maxN, 1+Math.floor(Math.random()*Math.max(1,maxN-1)) + (hasVerify?0:99));
+  let done=false;
+  for(let i=1;i<=maxN;i++){
+    out(`  周 ${i}: 計画→行動→観測 → 検証: ${hasVerify? (i>=succeedAt? "合格 ✅":"不合格 ↺"):"（検証なし→自己申告で完了）"}`, i>=succeedAt&&hasVerify?"c-good":"");
+    if((hasVerify&&i>=succeedAt) || !hasVerify){
+      out(hasVerify? `🛑 停止: 成功（${i}周で完了）`:"🛑 停止: 自己申告で終了（要注意: 本当に完了か未検証）", hasVerify?"c-good":"c-warn");
+      done=true; break;
+    }
+  }
+  if(!done) out(`🛑 停止: 上限${maxN}回に到達 → 人間へエスカレーション`,"c-warn");
+});
+const st=document.createElement("style");
+st.textContent=".trace .c-good{color:var(--good)}.trace .c-warn{color:var(--warn)}.trace .c-dim{color:var(--dim)}.trace div{padding:1px 0}";
+document.head.appendChild(st);
+
+$$("#check li").forEach(li=>{
+  const k="chk_"+li.dataset.c;
+  if(store[k]) li.classList.add("on");
+  li.addEventListener("click",()=>{li.classList.toggle("on");store[k]=li.classList.contains("on");save();});
+});
+
+const QUIZ=[
+  {q:"Loop Engineering を一言でいうと？",
+   o:[["エージェントが自分で繰り返し動く『ループ』そのものを設計すること",true],["プロンプトの言い回しを最適化すること",false],["より大きなLLMに乗り換えること",false]],
+   e:"プロンプト調整の次の段階。トリガー・トポロジー・検証・停止というループを設計します。"},
+  {q:"2026年に『ボトルネックはモデルではなく◯◯』と言われる、その◯◯は？",
+   o:[["Verifier（検証器）",true],["GPU",false],["プロンプト長",false]],
+   e:"良い/完了を定義し機械判定する検証器こそが、いま一番の希少スキルです。"},
+  {q:"検証器を入れずにループを回すと、典型的に何が起きる？",
+   o:[["『できたつもり』の偽完了で止まり、成果は未達",true],["必ず無限ループになる",false],["トークンを全く使わない",false]],
+   e:"自己申告で完了とみなして止まるため、実際は要件未達のまま終わるのが最大の罠。"},
+  {q:"停止条件を『成功したら停止』だけにすると起こりうるリスクは？",
+   o:[["合格できない時に永遠に回り、コストが溶ける",true],["1回で必ず止まる",false],["検証器が不要になる",false]],
+   e:"成功口に加えて『上限・時間・停滞』の安全網を置くのが定石です。"},
+  {q:"Context Engineering について正しいのは？",
+   o:[["情報は多く渡すほど良いとは限らず、要点厳選が効く",true],["毎周すべての履歴を全部渡すのが最善",false],["ループ設計とは無関係",false]],
+   e:"2025年の研究で多すぎる文脈は精度を下げると判明。Loop と Context は両輪です。"}
+];
+const qbox=$("#quizBox");
+QUIZ.forEach((item,i)=>{
+  const c=document.createElement("div");c.className="card q";
+  c.innerHTML=`<b>Q${i+1}. ${item.q}</b>`+item.o.map((o,j)=>`<span class="opt" data-q="${i}" data-ok="${o[1]}">${o[0]}</span>`).join("")+`<div class="exp">💡 ${item.e}</div>`;
+  qbox.appendChild(c);
+});
+let answered=0,score=0;
+$$("#quizBox .opt").forEach(o=>o.addEventListener("click",()=>{
+  const card=o.closest(".q"); if(card.dataset.answered) return; card.dataset.answered="1"; answered++;
+  if(o.dataset.ok==="true") score++;
+  $$(".opt",card).forEach(x=>x.classList.add(x.dataset.ok==="true"?"correct":"wrong"));
+  $(".exp",card).classList.add("show");
+  if(answered===QUIZ.length){
+    $("#quizScore").style.display="block";$("#qScoreNum").textContent=score;
+    $("#qScoreMsg").textContent = score===5?"満点！ ループ設計の地図が頭に入りました 🎉":score>=3?"good! 用語集で弱点を補強しましょう。":"復習推奨：M2「4つの設計要素」へ戻ってみて。";
+  }
+}));
+
+const topBtn=$("#top");
+addEventListener("scroll",()=>{topBtn.style.display=scrollY>600?"block":"none";});
+topBtn.addEventListener("click",()=>scrollTo({top:0,behavior:"smooth"}));
+
+refreshProgress();
+</script>
+</body>
+</html>
